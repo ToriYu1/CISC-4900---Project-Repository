@@ -25,19 +25,16 @@ async function fetchandLoadData(){
     }
 }
 
-function compareDays(){
-
-}
-
 function displayInfoOnMap(){
     for(let i = 0; i < streetCleaningInfo.length; i++){
        let str = streetCleaningInfo[i].sign_description;
        let dayString = days[day];
 
-       let wordIndex = str.indexOf("MONDAY");
+       let wordIndex = str.indexOf("MONDAY"); //Temp
        if(wordIndex != -1){
-            //Check the time
-            console.log("Parking is not available");
+            //Check the current time and compare it with the scheduled time for cleaning, if it's a few befores before cleaning hours parking will be unavailable
+
+            console.log("Parking is likely not available");
        }
        else{
         console.log("Parking is likely available");

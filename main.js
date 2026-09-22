@@ -13,15 +13,32 @@ const dayValue = {
 
 //Variables
 var map = L.map('map').setView([40.7128, -74.0060], 13);
-const date = new Date();
-const day = date.getDay();
-const currentHour = date.getHours();
-const currentMinute = date.getMinutes();
 
+//Leaflet Map
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map);
+
+//Functions
+function getDate(){
+    return new Date();
+}
+
+function getDay(){
+    let date = getDate();
+    let day = date.getDay();
+
+    return day;
+}
+
+function getTime(){
+    let date = getDate();
+    let hour = date.getHours();
+    let minute = date.getUTCMinutes();
+
+    return [hour,minute];
+}
 
 async function fetchandLoadData(){
     const response = await fetch('https://data.cityofnewyork.us/resource/nfid-uabd.json');
@@ -36,44 +53,29 @@ async function fetchandLoadData(){
     }
 }
 
-function convertTime(time){
-    if(time == "NOON") return [12,0];
-    else if(time == "MIDNIGHT") return [0,0];
-
-    let result = time.match(/(\d{1,2})(?::(\d{2}))?(AM|PM)/);
-
-    let hour = result[1];
-    let minute = result[2];
-    let meridiem = result[3];
-
-    if(minute == null){
-        minute = 0;
-    }
-
-    if(meridiem == "AM"){
-        return [hour, minute];
-    }
-    else if(meridiem == "PM"){
-        return [(12 + hour), minute];
-    }
-}
-
 function findDay(unavailableDay){
-    let currentDay = days[day-1];
+    let currentDay = days[getDay()-1];
 
+    //
     if(unavailableDay.length == 1){
         if(unavailableDay[0].includes("-")){
             let d = unavailableDay[0].split("-");
             let startingDay = dayValue[d[0]];
             let endingDay = dayValue[d[1]];
+            let numDays = Math.abs(startingDay - endingDay);
+            
+            for(let i = 0; i <= numDays; i++){
+                if(currentDay == days[startingDay + i]){
+                    return true;
+                }
+            }
 
-            console.log(startingDay);
-            console.log(endingDay);
+            return false;
         }
     }
+
     for(let i = 0; i < unavailableDay.length; i++){
         if(unavailableDay[i] == currentDay){
-            console.log("Unavailable");
             return true;
         }
     }
@@ -81,40 +83,87 @@ function findDay(unavailableDay){
     return false;
 }
 
-function compareDay(str){
-    let regex = /\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|MON|TUE|WED|THU|FRI|SAT|SUN)(?:\s*(?:-|THRU)\s*(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|MON|TUE|WED|THU|FRI|SAT|SUN))?\b|NO\s+PARKING\s+ANYTIME/gi;
+function isMatchingDay(str){
+    let regex = /\b(?:MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|MON|TUE|WED|THU|FRI|SAT|SUN)(?:\s*(?:-|THRU)\s*(?:MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|MON|TUE|WED|THU|FRI|SAT|SUN))?\b|NO\s+PARKING\s+ANYTIME/gi;
     let unavailableDay = str.match(regex);
 
     if(unavailableDay == "NO PARKING ANYTIME"){
-        return "No Parking";
+        return "NO PARKING ANYTIME";
     }
 
     let found = findDay(unavailableDay);
+    if(found == true){
+        return true;
+    }
+    else{
+        return false;
+    }
 }
 
-function compareTime(startTime, endTime){
-   //console.log(startTime);
+function convertTime(time){
+    if(time == "NOON") return [12,0];
+    else if(time == "MIDNIGHT") return [0,0];
+
+    let result = time.match(/(\d{1,2})(?::(\d{2}))?(AM|PM)/);
+
+    let hour = Number(result[1]);
+    let minute = Number(result[2]) || 0;
+    let meridiem = result[3];
+
+    if(meridiem == "AM"){
+        return [hour, minute];
+    }
+    else if(meridiem == "PM"){
+        if(hour == 12){
+            return [hour, minute];
+        }
+        else{
+            return [hour + 12, minute];
+        }
+    }
+}
+
+function isMatchingTime(startTime, endTime){
+    let currentTime = getTime();
+    let hour = currentTime[0];
+    let minute = currentTime[1];
+
+    let startTimeInfo = convertTime(startTime);
+    let endTimeInfo = convertTime(endTime);
+
+    let startHour = startTimeInfo[0];
+    let startMinute = startTimeInfo[1];
+    let endHour = endTimeInfo[0];
+    let endMinute = endTimeInfo[1];
+
+    if(hour >= startHour && hour <= endHour){
+        //Parking is not available
+        return true;
+    }
+    else{
+        return false;
+    }
 }
 
 function displayInfoOnMap(){
     for(let i = 0; i < streetCleaningInfo.length; i++){
         let str = streetCleaningInfo[i].sign_description;
-        let currentDay = days[day-1];
 
-        compareDay(str);
-        let wordIndex = str.indexOf(currentDay);
-        if(wordIndex == -1){    
-            //Street is likely available for parking
+        let result = isMatchingDay(str);
+        if(result == true){
+            //Street is likely unavailable for parking
 
-            //Check for street traffic data and user-data
-        }   
+            //Check time/date
+            const timeResult = str.match(/((?:\d{1,2}(?::\d{2})?(?:AM|PM)|NOON|MIDNIGHT))-((?:\d{1,2}(?::\d{2})?(?:AM|PM)|NOON|MIDNIGHT))/i);
+            if(isMatchingTime(timeResult[1], timeResult[2]) == true){
+                console.log("Parking is not available");
+            }
+        }
+        else if(result == "NO PARKING ANYTIME"){
+            
+        }
         else{
-            //Check to see if parking is soon/already happening
-             const result = str.match(/((?:\d{1,2}(?::\d{2})?(?:AM|PM)|NOON|MIDNIGHT))-((?:\d{1,2}(?::\d{2})?(?:AM|PM)|NOON|MIDNIGHT))/i);
-             let [startHour, startMinute] = convertTime(result[1]);
-
-             //console.log(startHour);
-             //console.log(startMinute);
+            //Street is likely available for parking
         }
     }
 }

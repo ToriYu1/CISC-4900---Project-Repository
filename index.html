@@ -1,16 +1,27 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        <title>Parking Tracker</title>
+        <link rel="stylesheet" href="node_modules/leaflet/dist/leaflet.css"
             integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
             crossorigin=""/>
+        <link rel="stylesheet" href="style.css">
     </head>
     <body>
+        <div class="checkboxes">
+            <label><input type="checkbox" class = "day"> Monday</label>
+            <label><input type="checkbox" class = "day"> Tuesday</label>
+            <label><input type="checkbox" class = "day"> Wednesday</label>
+            <label><input type="checkbox" class = "day"> Thursday</label>
+            <label><input type="checkbox" class = "day"> Friday</label>
+            <label><input type="checkbox" class = "day"> Saturday</label>
+            <label><input type="checkbox" class = "day"> Sunday</label>
+        </div>
         <div id="map" style="width:2000px; height:950px"><</div>>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
-
+        <script src="node_modules/proj4/dist/proj4.js"></script>
         <script src="main.js"></script>
     </body>
 </html>

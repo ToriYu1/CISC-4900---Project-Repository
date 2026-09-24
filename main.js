@@ -13,6 +13,7 @@ const dayValue = {
 
 //Variables
 var map = L.map('map').setView([40.7128, -74.0060], 13);
+const epsg2263 = "+proj=lcc +lat_1=41.03333333333333 +lat_2=40.66666666666666 +lat_0=40.16666666666666 +lon_0=-74 +x_0=300000.0000000001 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=us-ft +no_defs'";
 
 //Leaflet Map
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -21,6 +22,14 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 //Functions
+function ConvertCoordinatesToLangLat(x,y){
+    let x1 = parseFloat(x);
+    let y1 = parseFloat(y);
+
+    const [long, lat] = proj4(epsg2263, "EPSG:4326", [x1,y1]);
+    return {lattitude: lat, longitude: long};
+}
+
 function getDate(){
     return new Date();
 }
@@ -156,17 +165,58 @@ function displayInfoOnMap(){
             //Check time/date
             const timeResult = str.match(/((?:\d{1,2}(?::\d{2})?(?:AM|PM)|NOON|MIDNIGHT))-((?:\d{1,2}(?::\d{2})?(?:AM|PM)|NOON|MIDNIGHT))/i);
             if(isMatchingTime(timeResult[1], timeResult[2]) == true){
-                console.log("Parking is not available");
+                //Street is currently being cleaned, parking is unavaialble
+                let testX = streetCleaningInfo[i].sign_x_coord;
+
+                if(testX != undefined){
+                    let latNLong = ConvertCoordinatesToLangLat(streetCleaningInfo[i].sign_x_coord, streetCleaningInfo[i].sign_y_coord);   
+                    let marker = L.marker([latNLong.lattitude, latNLong.longitude]).addTo(map);
+                    marker.bindPopup("Parking is unavailable");
+                }
+            }
+            else{
+                //Street is not being cleaned at this time, parking is possibly available
+                let testX = streetCleaningInfo[i].sign_x_coord;
+
+                if(testX != undefined){
+                    let latNLong = ConvertCoordinatesToLangLat(streetCleaningInfo[i].sign_x_coord, streetCleaningInfo[i].sign_y_coord);   
+                    let marker = L.marker([latNLong.lattitude, latNLong.longitude]).addTo(map);
+                    marker.bindPopup("Parking is possibly available");
+                }  
             }
         }
         else if(result == "NO PARKING ANYTIME"){
-            
+            let testX = streetCleaningInfo[i].sign_x_coord;
+
+            if(testX != undefined){
+                let latNLong = ConvertCoordinatesToLangLat(streetCleaningInfo[i].sign_x_coord, streetCleaningInfo[i].sign_y_coord);   
+                let marker = L.marker([latNLong.lattitude, latNLong.longitude]).addTo(map);
+                marker.bindPopup("Parking is unavailable");
+            }
         }
         else{
             //Street is likely available for parking
+            let testX = streetCleaningInfo[i].sign_x_coord;
+
+            if(testX != undefined){
+                let latNLong = ConvertCoordinatesToLangLat(streetCleaningInfo[i].sign_x_coord, streetCleaningInfo[i].sign_y_coord);   
+                let marker = L.marker([latNLong.lattitude, latNLong.longitude]).addTo(map);
+                marker.bindPopup("Parking is possibly available");
+            }
         }
     }
 }
+
+//UI
+const checkboxes = document.querySelectorAll(".day");
+checkboxes.forEach(checkbox =>{
+    checkbox.addEventListener("change", function(){
+       if(this.checked){
+
+       }
+    })
+})
+
 
 async function main(){
     await fetchandLoadData();

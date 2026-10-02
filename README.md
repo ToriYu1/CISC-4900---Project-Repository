@@ -14,3 +14,6 @@ Parking Tracker is a web application that helps drivers in New York find parking
 
 ## Data
 - [Street Cleaning Schedule](https://data.cityofnewyork.us/resource/nfid-uabd.json)
+
+## Constraints
+- The data on the website is limited to New York

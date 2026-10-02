@@ -60,12 +60,24 @@ async function fetchandLoadData(){
             streetCleaningInfo.push(data[i]);
         }
     }
+
+    /* for(const info of streetCleaningInfo){
+        console.log(info.sign_description);
+    }*/
+   
+    //Send request to store data in database
+    const response2 = await fetch("http://localhost:3000/import",{
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: streetCleaningInfo
+    });
 }
 
 function findDay(unavailableDay){
     let currentDay = days[getDay()-1];
 
-    //
     if(unavailableDay.length == 1){
         if(unavailableDay[0].includes("-")){
             let d = unavailableDay[0].split("-");
@@ -166,13 +178,7 @@ function displayInfoOnMap(){
             const timeResult = str.match(/((?:\d{1,2}(?::\d{2})?(?:AM|PM)|NOON|MIDNIGHT))-((?:\d{1,2}(?::\d{2})?(?:AM|PM)|NOON|MIDNIGHT))/i);
             if(isMatchingTime(timeResult[1], timeResult[2]) == true){
                 //Street is currently being cleaned, parking is unavaialble
-                let testX = streetCleaningInfo[i].sign_x_coord;
 
-                if(testX != undefined){
-                    let latNLong = ConvertCoordinatesToLangLat(streetCleaningInfo[i].sign_x_coord, streetCleaningInfo[i].sign_y_coord);   
-                    let marker = L.marker([latNLong.lattitude, latNLong.longitude]).addTo(map);
-                    marker.bindPopup("Parking is unavailable");
-                }
             }
             else{
                 //Street is not being cleaned at this time, parking is possibly available

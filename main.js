@@ -60,18 +60,14 @@ async function fetchandLoadData(){
             streetCleaningInfo.push(data[i]);
         }
     }
-
-    /* for(const info of streetCleaningInfo){
-        console.log(info.sign_description);
-    }*/
    
     //Send request to store data in database
     const response2 = await fetch("http://localhost:3000/import",{
-        method: 'POST',
+        method: "POST",
         headers: {
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json"
         },
-        body: streetCleaningInfo
+        body: JSON.stringify(data)
     });
 }
 

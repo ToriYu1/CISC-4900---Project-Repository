@@ -7,5 +7,10 @@ const pool = new Pool({
     password: '4474'
 })
 
-module.exports = pool;
+async function getAllData(){
+    const result = await pool.query('SELECT * FROM street_cleaning');
+    return result.rows;
+}
+
+module.exports = { pool, getAllData };
 

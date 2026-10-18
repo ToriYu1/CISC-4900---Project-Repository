@@ -50,25 +50,27 @@ function getTime(){
 }
 
 async function fetchandLoadData(){
-    const response = await fetch('https://data.cityofnewyork.us/resource/nfid-uabd.json');
-    //const response = await fetch("streetCleaningData.json");
-    const data = await response.json();
+    const lastFetched = localStorage.getItem("lastFetched")
+    const currentDay = days[getDay()-1];
 
-    for(let i = 0; i < data.length; i++){
-        let str = data[i].sign_description;
-        if(str.indexOf('NO PARKING') != -1){
-            streetCleaningInfo.push(data[i]);
-        }
+    if(lastFetched != currentDay){ //Fetch from database and update it
+        console.log('Fetching and updating data...');
+        const response = await fetch('https://data.cityofnewyork.us/resource/nfid-uabd.json');
+        const data = await response.json();
+        
+        //Send request to store data in database
+        const response2 = await fetch("http://localhost:3000/import",{
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        });
+
+        localStorage.setItem("lastFetched", currentDay);
     }
-   
-    //Send request to store data in database
-    const response2 = await fetch("http://localhost:3000/import",{
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(data)
-    });
+    
+    //Fetch data from PostgreSQL database
 }
 
 function findDay(unavailableDay){

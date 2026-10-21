@@ -33,7 +33,7 @@ function getLocation(){
 
             (error) => {
                 switch(error.code){
-                    case error.PERMISSION_DENIED:
+                    case error.PERMISSION_DENIED: //User did not give permission to use geolocation, use IP instead
                         fetch("https://ipapi.co/json/")
                             .then((response) => response.json())
                             .then((data) => {
@@ -75,6 +75,31 @@ function getTime(){
     return [hour,minute];
 }
 
+async function loadStreetCleaningData(params) {
+    const bounds = map.getBounds();
+    const minLatitude = bounds.getSouth();
+    const maxLatitude = bounds.getNorth();
+    const minLongitude = bounds.getWest();
+    const maxLongitude = bounds.getEast();
+
+    const response = await fetch(`http://localhost:3000/getStreetCleaningData?minLatitude=${minLatitude}&maxLatitude=${maxLatitude}&minLongitude=${minLongitude}&maxLongitude=${maxLongitude}`);
+    const data = await response.json();
+    data.forEach(point => {
+        if(point.latitude && point.latitude2 != null){
+            const latnLong = [
+                [point.latitude, point.longitude],
+                [point.latitude2, point.longitude2]
+            ]
+
+            L.polyline(latnLong, {
+                color: 'blue',
+                weight: 5,
+                opacity: 0.5
+            }).addTo(map);
+        }
+    })
+}
+
 async function fetchandLoadData(){
     const lastFetched = localStorage.getItem("lastFetched")
     const currentDay = days[getDay()-1];
@@ -86,13 +111,14 @@ async function fetchandLoadData(){
     ]
    
     L.polyline(latnLong, {
-        color: 'blue',
+        color: 'red',
         weight: 5,
         opacity: 0.5
     }).addTo(map);
 
-
-    if(lastFetched == currentDay){ //Fetch from database and update it
+    console.log(lastFetched);
+    console.log(currentDay);
+    if(lastFetched != currentDay){ //Fetch from database and update it
         localStorage.setItem("lastFetched", currentDay);
 
         console.log('Fetching and updating data...');
@@ -107,6 +133,9 @@ async function fetchandLoadData(){
             },
             body: JSON.stringify(data)
         });
+    } else{ //Fetch data from database
+        console.log("Fetch from PostgreSQL database");
+        loadStreetCleaningData();
     }
 }
 

@@ -7,17 +7,59 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json({limit: '50mb'}));
 
-app.get('fetch', async (req, res) =>{
+app.get('/getStreetCleaningData', async (req, res) =>{
     try{
-        
+        const {minLatitude, maxLatitude, minLongitude, maxLongitude} = req.query;
+        const result = await pool.query(`
+            SELECT latitude, longitude, latitude2, longitude2
+            FROM street_cleaning
+            WHERE (latitude BETWEEN ${minLatitude} AND ${maxLatitude} AND longitude BETWEEN ${minLongitude} AND ${maxLongitude})
+                OR (latitude2 BETWEEN ${minLatitude} AND ${maxLatitude} AND longitude2 BETWEEN ${minLongitude} AND ${maxLongitude})
+            `
+        );
+        const data = result.rows;
+        res.json(data);
     }
     catch(error){
-        
+        console.log("Error: " + error.message);
     }
 })
 
 function sleep(ms = 0){
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchBlockface(onStreet, crossStreetOne, crossStreetTwo, borough){
+    console.log("Fetching Blockface...")
+    const key = "49d4ede677954ca2b88babc08256ef60"
+    const url = "https://api.nyc.gov/geoclient/v2/blockface.json";
+
+    const params = new URLSearchParams({
+        onStreet,
+        crossStreetOne,
+        crossStreetTwo,
+        borough
+    })
+
+    try{
+        const response = await fetch(`${url}?${params}`, {
+            headers: {
+                "Ocp-Apim-Subscription-Key": key,
+            },
+        })
+
+        const data = await response.json();
+        const blockfaceData = data.blockface;
+        const latnLong = [
+            [blockfaceData.latitudeOfFromIntersection, blockfaceData.longitudeOfFromIntersection],
+            [blockfaceData.latitudeOfToIntersection, blockfaceData.longitudeOfToIntersection]
+        ];
+
+        return latnLong;
+    }
+    catch(error){
+        console.log(error.message);
+    }
 }
 
 async function fetchIntersection(crossStreetOne, crossStreetTwo, borough){
@@ -85,10 +127,22 @@ app.post('/import', async (req, res) => {
                 point = await(fetchIntersection(onStreet, fromStreet, borough));
                 await sleep(40); //Delay to avoid exceeding API rate limit
                 point2 = await(fetchIntersection(onStreet, toStreet, borough));
-                latitude = point[0];
-                longitude = point[1];
-                latitude2 = point2[0];
-                longitude2 = point2[1];
+
+                console.log(point, point2);
+                if(point[0] == null || point2[0] == null){
+                    console.log("Undefined?");
+                    const pointData = await(fetchBlockface(onStreet, fromStreet, toStreet, borough));
+                    latitude = pointData[0][0];
+                    longitude = pointData[0][1];
+                    latitude2 = pointData[1][0];
+                    longitude2 = pointData[1][1];
+                }
+                else{
+                    latitude = point[0];
+                    longitude = point[1];
+                    latitude2 = point2[0];
+                    longitude2 = point2[1];
+                }
 
                 const query = await pool.query(
                     `INSERT INTO street_cleaning (day, time, side, borough, from_street, to_street, on_street, sign_code, order_number, distance_from_intersection, latitude, longitude, latitude2, longitude2)

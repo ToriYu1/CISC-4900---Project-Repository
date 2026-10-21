@@ -12,9 +12,39 @@ app.get('fetch', async (req, res) =>{
         
     }
     catch(error){
-        console.error(error);
+        
     }
 })
+
+function sleep(ms = 0){
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchIntersection(crossStreetOne, crossStreetTwo, borough){
+    const key = "49d4ede677954ca2b88babc08256ef60"
+    const url = "https://api.nyc.gov/geoclient/v2/intersection";
+
+    const params = new URLSearchParams({
+        crossStreetOne,
+        crossStreetTwo,
+        borough,
+    })
+
+    try{
+        const response = await fetch(`${url}?${params}`, {
+            headers: {
+                "Ocp-Apim-Subscription-Key": key,
+            },
+        })
+
+        const data = await(response.json());
+        const intersection = data.intersection;
+
+        return [intersection.latitude, intersection.longitude];
+    } catch (error){
+        console.log(error.message);
+    }
+}
 
 app.post('/import', async (req, res) => {
     const streetCleaningInfo = req.body;
@@ -31,6 +61,12 @@ app.post('/import', async (req, res) => {
             let sign_code;
             let order_number;
             let distance_from_intersection;
+            let latitude;
+            let longitude;
+            let latitude2;
+            let longitude2;
+            let point;
+            let point2;
 
             let str = streetCleaningInfo[i].sign_description
             if(str.indexOf('NO PARKING') != -1){
@@ -45,19 +81,29 @@ app.post('/import', async (req, res) => {
                 order_number = streetCleaningInfo[i].order_number;
                 distance_from_intersection = streetCleaningInfo[i].distance_from_intersection;
 
+                //Get the geocode location of street cleaning locations
+                point = await(fetchIntersection(onStreet, fromStreet, borough));
+                await sleep(40); //Delay to avoid exceeding API rate limit
+                point2 = await(fetchIntersection(onStreet, toStreet, borough));
+                latitude = point[0];
+                longitude = point[1];
+                latitude2 = point2[0];
+                longitude2 = point2[1];
+
                 const query = await pool.query(
-                    `INSERT INTO street_cleaning (day, time, side, borough, from_street, to_street, on_street, sign_code, order_number, distance_from_intersection)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                    `INSERT INTO street_cleaning (day, time, side, borough, from_street, to_street, on_street, sign_code, order_number, distance_from_intersection, latitude, longitude, latitude2, longitude2)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                     ON CONFLICT (sign_code, order_number, distance_from_intersection)
                     DO NOTHING
-                    `, [unavailableDays, time, side, borough, fromStreet, toStreet, onStreet, sign_code, order_number, distance_from_intersection]     
+                    `, [unavailableDays, time, side, borough, fromStreet, toStreet, onStreet, sign_code, order_number, distance_from_intersection, latitude, longitude, latitude2, longitude2]     
                 );
             }
         }
 
+        console.log('Finished');
         res.json({
-            success: true
-        });
+            success: true}
+        );
     }
     catch(error){
         console.error(error);

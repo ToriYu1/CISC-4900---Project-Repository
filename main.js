@@ -22,6 +22,32 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 //Functions
+function getLocation(){
+    if("geolocation" in navigator){
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const latitude = position.coords.latitude;
+                const longitude = position.coords.longitude;
+                map.setView([latitude, longitude], 16);
+            },
+
+            (error) => {
+                switch(error.code){
+                    case error.PERMISSION_DENIED:
+                        fetch("https://ipapi.co/json/")
+                            .then((response) => response.json())
+                            .then((data) => {
+                                const latitude = data.latitude;
+                                const longitude = data.longitude;
+                                map.setView([latitude, longitude], 16);
+                            });
+                        break;
+                }
+            }
+        );
+    }
+}
+
 function ConvertCoordinatesToLangLat(x,y){
     let x1 = parseFloat(x);
     let y1 = parseFloat(y);
@@ -53,7 +79,22 @@ async function fetchandLoadData(){
     const lastFetched = localStorage.getItem("lastFetched")
     const currentDay = days[getDay()-1];
 
-    if(lastFetched != currentDay){ //Fetch from database and update it
+    //Testing polyline
+    const latnLong = [
+        [40.856735, -73.902779],
+        [40.858093, -73.901914]
+    ]
+   
+    L.polyline(latnLong, {
+        color: 'blue',
+        weight: 5,
+        opacity: 0.5
+    }).addTo(map);
+
+
+    if(lastFetched == currentDay){ //Fetch from database and update it
+        localStorage.setItem("lastFetched", currentDay);
+
         console.log('Fetching and updating data...');
         const response = await fetch('https://data.cityofnewyork.us/resource/nfid-uabd.json');
         const data = await response.json();
@@ -66,11 +107,7 @@ async function fetchandLoadData(){
             },
             body: JSON.stringify(data)
         });
-
-        localStorage.setItem("lastFetched", currentDay);
     }
-    
-    //Fetch data from PostgreSQL database
 }
 
 function findDay(unavailableDay){
@@ -227,4 +264,6 @@ async function main(){
     displayInfoOnMap();
 }
 
+getLocation();
 main();
+

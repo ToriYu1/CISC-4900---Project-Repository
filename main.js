@@ -106,8 +106,8 @@ async function fetchandLoadData(){
 
     //Testing polyline
     const latnLong = [
-        [40.856735, -73.902779],
-        [40.858093, -73.901914]
+        [40.625388055243, -74.002149493009],
+        [40.624058844484, -73.99994794354]
     ]
    
     L.polyline(latnLong, {
@@ -115,14 +115,14 @@ async function fetchandLoadData(){
         weight: 5,
         opacity: 0.5
     }).addTo(map);
-
+ 
     console.log(lastFetched);
     console.log(currentDay);
-    if(lastFetched != currentDay){ //Fetch from database and update it
+    if(lastFetched == currentDay){ //Fetch from database and update it
         localStorage.setItem("lastFetched", currentDay);
 
         console.log('Fetching and updating data...');
-        const response = await fetch('https://data.cityofnewyork.us/resource/nfid-uabd.json');
+        const response = await fetch('./street_cleaning.json');
         const data = await response.json();
         
         //Send request to store data in database

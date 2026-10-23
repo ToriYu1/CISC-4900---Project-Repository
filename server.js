@@ -1,11 +1,25 @@
+//Variables
 const express = require('express');
 const cors = require('cors');
 const { pool, getAllData } = require('./database');
 const app = express();
 const PORT = 3000;
+const proj4 = require('proj4');
+const epsg2263 = "+proj=lcc +lat_1=41.03333333333333 +lat_2=40.66666666666666 +lat_0=40.16666666666666 +lon_0=-74 +x_0=300000.0000000001 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=us-ft +no_defs'";
+
+//Function
+function ConvertCoordinatesToLatLong(x,y){
+    console.log("Test: " + x + " " + y);
+    let x1 = parseFloat(x);
+    let y1 = parseFloat(y);
+
+    const [long, lat] = proj4(epsg2263, "EPSG:4326", [x1,y1]);
+    return {latitude: lat, longitude: long};
+}
+
 
 app.use(cors());
-app.use(express.json({limit: '50mb'}));
+app.use(express.json({limit: '500mb'}));
 
 app.get('/getStreetCleaningData', async (req, res) =>{
     try{
@@ -25,74 +39,29 @@ app.get('/getStreetCleaningData', async (req, res) =>{
     }
 })
 
-function sleep(ms = 0){
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function fetchBlockface(onStreet, crossStreetOne, crossStreetTwo, borough){
-    console.log("Fetching Blockface...")
-    const key = "49d4ede677954ca2b88babc08256ef60"
-    const url = "https://api.nyc.gov/geoclient/v2/blockface.json";
-
-    const params = new URLSearchParams({
-        onStreet,
-        crossStreetOne,
-        crossStreetTwo,
-        borough
-    })
+//Import latitude/longitude data from centerline.csv 
+app.post('/importLatNLong', async (req, res) => {
+    const info = req.body;
 
     try{
-        const response = await fetch(`${url}?${params}`, {
-            headers: {
-                "Ocp-Apim-Subscription-Key": key,
-            },
-        })
-
-        const data = await response.json();
-        const blockfaceData = data.blockface;
-        const latnLong = [
-            [blockfaceData.latitudeOfFromIntersection, blockfaceData.longitudeOfFromIntersection],
-            [blockfaceData.latitudeOfToIntersection, blockfaceData.longitudeOfToIntersection]
-        ];
-
-        return latnLong;
-    }
-    catch(error){
+        
+    }catch(error){
         console.log(error.message);
     }
-}
+})
 
-async function fetchIntersection(crossStreetOne, crossStreetTwo, borough){
-    const key = "49d4ede677954ca2b88babc08256ef60"
-    const url = "https://api.nyc.gov/geoclient/v2/intersection";
-
-    const params = new URLSearchParams({
-        crossStreetOne,
-        crossStreetTwo,
-        borough,
-    })
-
-    try{
-        const response = await fetch(`${url}?${params}`, {
-            headers: {
-                "Ocp-Apim-Subscription-Key": key,
-            },
-        })
-
-        const data = await(response.json());
-        const intersection = data.intersection;
-
-        return [intersection.latitude, intersection.longitude];
-    } catch (error){
-        console.log(error.message);
-    }
-}
-
+//Import data into street_cleaning database
 app.post('/import', async (req, res) => {
-    const streetCleaningInfo = req.body;
+    const info = req.body;
 
     try{
-        for(let i = 0; i < streetCleaningInfo.length; i++){
+        //Filter data to only get the tables where sign_description mentions "NO PARKING"
+        const streetCleaningInfo = info.filter(row => 
+            String(row?.["sign_description"] ?? "").includes("NO PARKING")
+        );
+       
+        //Populate the street_cleaning database
+        for(let i = 0; i < info.length; i++){
             let unavailableDays = [];
             let time = [];
             let side;
@@ -107,8 +76,8 @@ app.post('/import', async (req, res) => {
             let longitude;
             let latitude2;
             let longitude2;
-            let point;
-            let point2;
+            let sign_latitude;
+            let sign_longitude;
 
             let str = streetCleaningInfo[i].sign_description
             if(str.indexOf('NO PARKING') != -1){
@@ -123,26 +92,14 @@ app.post('/import', async (req, res) => {
                 order_number = streetCleaningInfo[i].order_number;
                 distance_from_intersection = streetCleaningInfo[i].distance_from_intersection;
 
-                //Get the geocode location of street cleaning locations
-                point = await(fetchIntersection(onStreet, fromStreet, borough));
-                await sleep(40); //Delay to avoid exceeding API rate limit
-                point2 = await(fetchIntersection(onStreet, toStreet, borough));
-
-                console.log(point, point2);
-                if(point[0] == null || point2[0] == null){
-                    console.log("Undefined?");
-                    const pointData = await(fetchBlockface(onStreet, fromStreet, toStreet, borough));
-                    latitude = pointData[0][0];
-                    longitude = pointData[0][1];
-                    latitude2 = pointData[1][0];
-                    longitude2 = pointData[1][1];
-                }
-                else{
-                    latitude = point[0];
-                    longitude = point[1];
-                    latitude2 = point2[0];
-                    longitude2 = point2[1];
-                }
+                //Convert sign coordinates
+                sign_latitude = streetCleaningInfo[i].sign_x_coord;
+                sign_longitude = streetCleaningInfo[i].sign_y_coord;
+                console.log(streetCleaningInfo[i]);
+                //const latNLong = ConvertCoordinatesToLatLong(sign_latitude, sign_longitude);
+                //sign_latitude = latNLong.latitude;
+                //sign_longitude = latNLong.longitude
+                console.log(sign_latitude, sign_longitude);
 
                 const query = await pool.query(
                     `INSERT INTO street_cleaning (day, time, side, borough, from_street, to_street, on_street, sign_code, order_number, distance_from_intersection, latitude, longitude, latitude2, longitude2)

@@ -101,7 +101,6 @@ async function loadStreetCleaningData(params) {
 }
 
 async function fetchandLoadData(){
-    const lastFetched = localStorage.getItem("lastFetched")
     const currentDay = days[getDay()-1];
 
     //Testing polyline
@@ -116,27 +115,18 @@ async function fetchandLoadData(){
         opacity: 0.5
     }).addTo(map);
  
-    console.log(lastFetched);
-    console.log(currentDay);
-    if(lastFetched == currentDay){ //Fetch from database and update it
-        localStorage.setItem("lastFetched", currentDay);
-
-        console.log('Fetching and updating data...');
-        const response = await fetch('./street_cleaning.json');
-        const data = await response.json();
+    console.log('Fetch data');
+    const response = await fetch('./streetCleaning.json');
+    const data = await response.json();
         
-        //Send request to store data in database
-        const response2 = await fetch("http://localhost:3000/import",{
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+    //Send request to store data in database
+    const response2 = await fetch("http://localhost:3000/import",{
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
             body: JSON.stringify(data)
-        });
-    } else{ //Fetch data from database
-        console.log("Fetch from PostgreSQL database");
-        loadStreetCleaningData();
-    }
+    });
 }
 
 function findDay(unavailableDay){

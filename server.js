@@ -71,7 +71,7 @@ app.post('/import', async (req, res) => {
             );
 
             //order_number already exists in the database, skip to next data
-            if(result.rows[0].found){ 
+            if(result.rows[0].exists){ 
                 continue
             }
 
@@ -99,11 +99,6 @@ app.post('/import', async (req, res) => {
             const fromStreet = streetCleaningInfo[i].from_street;
             const toStreet = streetCleaningInfo[i].to_street;
             const onStreet = streetCleaningInfo[i].on_street;
-
-            if(unavailableDays[0] == "NO PARKING"){
-                console.log("Time: " + time);
-                console.log(streetCleaningInfo[i].sign_description);
-            }
 
             const query = await pool.query(
                 `INSERT INTO street_cleaning (order_number, sign_longitude, sign_latitude, unavailable_days, time, side, borough, from_street, to_street, on_street)

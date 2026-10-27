@@ -92,13 +92,18 @@ app.post('/import', async (req, res) => {
             sign_longitude = latNLong.longitude
             sign_latitude = latNLong.latitude;
 
-            const unavailableDays = str.match(/\b(?:MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|MON|TUE|WED|THU|FRI|SAT|SUN)(?:\s*(?:-|THRU)\s*(?:MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|MON|TUE|WED|THU|FRI|SAT|SUN))?\b|NO\s+PARKING\s+ANYTIME/gi);
-            const time = str.match(/((?:\d{1,2}(?::\d{2})?(?:AM|PM)|NOON|MIDNIGHT))-((?:\d{1,2}(?::\d{2})?(?:AM|PM)|NOON|MIDNIGHT))/i);
+            const unavailableDays = str.match(/NO\s+PARKING\s+ANYTIME|NO\s+PARKING(?!.*\b(?:MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|MON|TUE|TUES|WED|THU|THURS|FRI|SAT|SUN)\b)|(?<=NO\s+PARKING.*)\b(?:MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|MON|TUE|TUES|WED|THU|THURS|FRI|SAT|SUN)(?:\s*(?:-|THRU)\s*(?:MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|MON|TUE|TUES|WED|THU|THURS|FRI|SAT|SUN))?\b/gi);
+            const time = str.match(/((?:\d{1,2}(?::\d{2})?(?:AM|PM)?|NOON|MIDNIGHT))(?:\s*-\s*|\s+TO\s+|\s+)((?:\d{1,2}(?::\d{2})?(?:AM|PM)|NOON|MIDNIGHT))/i);
             const side = streetCleaningInfo[i].side_of_street;
             const borough = streetCleaningInfo[i].borough;
             const fromStreet = streetCleaningInfo[i].from_street;
             const toStreet = streetCleaningInfo[i].to_street;
             const onStreet = streetCleaningInfo[i].on_street;
+
+            if(unavailableDays[0] == "NO PARKING"){
+                console.log("Time: " + time);
+                console.log(streetCleaningInfo[i].sign_description);
+            }
 
             const query = await pool.query(
                 `INSERT INTO street_cleaning (order_number, sign_longitude, sign_latitude, unavailable_days, time, side, borough, from_street, to_street, on_street)

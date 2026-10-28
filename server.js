@@ -16,6 +16,18 @@ function ConvertCoordinatesToLatLong(x,y){
     return {longitude: long, latitude: lat};
 }
 
+//Match the sign longitude/latitude to the closest latitude/longitude in centerline_data and then store the latitude/longitude street_cleaning
+async function findNearestCoordinate(longitude, latitude){
+    const result = await pool.query(`
+        SELECT *FROM centerline_data
+        ORDER BY 
+            power(("coordinates"[1][1]) - $1, 2) + power(("coordinates"[1][2]) - $2, 2)
+        LIMIT 1;
+        `, [longitude, latitude]
+    );
+
+    return [result.rows[0].coordinates[0], result.rows[0].coordinates[1]]
+}
 
 app.use(cors());
 app.use(express.json({limit: '500mb'}));
@@ -36,6 +48,38 @@ app.get('/getStreetCleaningData', async (req, res) =>{
     }
     catch(error){
         console.log("Error: " + error.message);
+    }
+})
+
+app.post('/editStreetCleaning', async (req, res) => {
+    try{
+    const {rows} = await pool.query(
+        `SELECT sign_longitude, sign_latitude, order_number FROM street_cleaning`
+    );
+
+    for(let i = 0; i < rows.length; i++){
+        const order_number = rows[i].order_number;
+        const sign_longitude = rows[i].sign_longitude;
+        const sign_latitude = rows[i].sign_latitude;
+
+        const coordinates = await findNearestCoordinate(sign_longitude, sign_latitude);
+        const longitude = coordinates[0][0];
+        const latitude = coordinates[0][1];
+        const longitude2 = coordinates[1][0];
+        const latitude2 = coordinates[1][1];
+
+        await pool.query(
+            `UPDATE street_cleaning
+             SET longitude = $1, latitude = $2, longitude2 = $3, latitude2 = $4
+             WHERE order_number = $5
+            `, [longitude, latitude, longitude2, latitude2, order_number]
+        );
+    }
+
+    console.log("Finished editing");
+
+    } catch(error){
+        console.log(error.message);
     }
 })
 

@@ -11,6 +11,11 @@ const dayValue = {
     "SUNDAY": 6
 }
 
+//Config
+let importStreetCleaningData = false;
+let importCenterlineData = false;
+let editStreetCleaningData = true;
+
 //Variables
 var map = L.map('map').setView([40.7128, -74.0060], 13);
 const epsg2263 = "+proj=lcc +lat_1=41.03333333333333 +lat_2=40.66666666666666 +lat_0=40.16666666666666 +lon_0=-74 +x_0=300000.0000000001 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=us-ft +no_defs'";
@@ -118,24 +123,35 @@ async function fetchandLoadData(){
     const centerlineData = await centerlineResponse.text();
     console.log(centerlineData);
 
-    await fetch("http://localhost:3000/importCenterlineData",{
-        method: "POST",
-        headers: {
+    //Import data into tables in database
+    if(importCenterlineData == true){
+        await fetch("http://localhost:3000/importCenterlineData",{
+            method: "POST",
+            headers: {
             "Content-Type": "text/csv"
         },
         body: centerlineData
-    });
+        });
+    }
 
-    const response = await fetch('./streetCleaning.json');
-    const data = await response.json();
+    if(importStreetCleaningData == true){
+        const response = await fetch('./streetCleaning.json');
+        const data = await response.json();
 
-    const response2 = await fetch("http://localhost:3000/import",{
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
+        const response2 = await fetch("http://localhost:3000/import",{
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
             body: JSON.stringify(data)
-    });
+        });
+    }
+
+    if(editStreetCleaningData){
+        const response = await fetch("http://localhost:3000/editStreetCleaning",{
+            method: "POST",
+        });
+    }
 }
 
 function findDay(unavailableDay){

@@ -19,6 +19,7 @@ function ConvertCoordinatesToLatLong(x,y){
 
 app.use(cors());
 app.use(express.json({limit: '500mb'}));
+app.use(express.text({type: "text/csv", limit: '500mb'}));
 
 app.get('/getStreetCleaningData', async (req, res) =>{
     try{
@@ -38,13 +39,27 @@ app.get('/getStreetCleaningData', async (req, res) =>{
     }
 })
 
-//Import latitude/longitude data from centerline.csv 
-app.post('/importLatNLong', async (req, res) => {
-    const info = req.body;
-
+app.post('/importCenterlineData', async (req, res) => {
+    const info = req.body.split("\n");
     try{
-        
-    }catch(error){
+        console.log("Import coordinates");
+        for(let i = 1; i < info.length; i++){
+            const the_geom = info[i].match(/MULTILINESTRING \(\((.*?)\)\)/);
+            if(the_geom){
+                let coordinateString = the_geom[1];
+                let str = coordinateString
+                    .replace(/[()]/g, "")
+                    .split(",").map(x => x.trim().split(/\s+/).map(Number));
+
+                const query = await pool.query(
+                    `INSERT INTO centerline_data (coordinates)
+                        VALUES ($1)
+                        `, [str]     
+                );
+            }
+        }
+        console.log("Finished importing coordinates");
+    } catch(error){
         console.log(error.message);
     }
 })
@@ -55,6 +70,7 @@ app.post('/import', async (req, res) => {
 
     try{
         //Filter data to only get the tables where sign_description mentions "NO PARKING"
+        console.log("Import street cleaning data");
         const streetCleaningInfo = info.filter(row => 
             String(row?.["sign_description"] ?? "").includes("NO PARKING")
         );
@@ -107,13 +123,13 @@ app.post('/import', async (req, res) => {
             );
         }
 
-        console.log('Finished');
+        console.log('Finished importing street cleaning data');
         res.json({
             success: true}
         );
     }
     catch(error){
-        console.error(error);
+        console.log(error.message);
     }
 })
 

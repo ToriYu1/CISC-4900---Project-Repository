@@ -101,8 +101,6 @@ async function loadStreetCleaningData(params) {
 }
 
 async function fetchandLoadData(){
-    const currentDay = days[getDay()-1];
-
     //Testing polyline
     const latnLong = [
         [40.625388055243, -74.002149493009],
@@ -114,12 +112,23 @@ async function fetchandLoadData(){
         weight: 5,
         opacity: 0.5
     }).addTo(map);
- 
     console.log('Fetch data');
+
+    const centerlineResponse = await fetch('./centerline.csv');
+    const centerlineData = await centerlineResponse.text();
+    console.log(centerlineData);
+
+    await fetch("http://localhost:3000/importCenterlineData",{
+        method: "POST",
+        headers: {
+            "Content-Type": "text/csv"
+        },
+        body: centerlineData
+    });
+
     const response = await fetch('./streetCleaning.json');
     const data = await response.json();
-        
-    //Send request to store data in database
+
     const response2 = await fetch("http://localhost:3000/import",{
         method: "POST",
         headers: {

@@ -11,18 +11,21 @@ const dayValue = {
     "SUNDAY": 6
 }
 
+//Dictionary
+const ids = new Map();
+
 //Config
 let importStreetCleaningData = false;
 let importCenterlineData = false;
-let editStreetCleaningData = true;
+let editStreetCleaningData = false;
+let zoomLimit;
 
 //Variables
-var map = L.map('map').setView([40.7128, -74.0060], 13);
+var map = L.map('map', {minZoom: 16, maxZoom: 18, zoom: 18}).setView([40.7128, -74.0060], 13);
 const epsg2263 = "+proj=lcc +lat_1=41.03333333333333 +lat_2=40.66666666666666 +lat_0=40.16666666666666 +lon_0=-74 +x_0=300000.0000000001 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=us-ft +no_defs'";
 
 //Leaflet Map
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
     attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map);
 
@@ -80,8 +83,8 @@ function getTime(){
     return [hour,minute];
 }
 
-async function loadStreetCleaningData(params) {
-    const bounds = map.getBounds();
+async function loadStreetCleaningData(bounds) {
+    console.log("Loading street cleaning data");
     const minLatitude = bounds.getSouth();
     const maxLatitude = bounds.getNorth();
     const minLongitude = bounds.getWest();
@@ -89,39 +92,63 @@ async function loadStreetCleaningData(params) {
 
     const response = await fetch(`http://localhost:3000/getStreetCleaningData?minLatitude=${minLatitude}&maxLatitude=${maxLatitude}&minLongitude=${minLongitude}&maxLongitude=${maxLongitude}`);
     const data = await response.json();
-    data.forEach(point => {
-        if(point.latitude && point.latitude2 != null){
-            const latnLong = [
-                [point.latitude, point.longitude],
-                [point.latitude2, point.longitude2]
-            ]
 
-            L.polyline(latnLong, {
-                color: 'blue',
-                weight: 5,
-                opacity: 0.5
-            }).addTo(map);
+    let orderNumberSet = new Set(ids.keys());
+    data.forEach(point => {
+        if (point.order_number ===  "S-01482352") {
+            console.log("BUTLER street coords: " + point.latitude + ", " + point.longitude + " -- " + point.latitude2 + ", " + point.longitude2);
+            console.log(point.latitude && point.latitude2 != null);
+            console.log("Matched to BUTLER ST!")
+        }
+        else{
+            console.log(point.latitude + ", " + point.longitude + " -- " + point.latitude2 + ", " + point.longitude2);
+        }
+        if(point.latitude && point.latitude2 != null){
+            if(ids.has(point.order_number)){
+                orderNumberSet.delete(point.order_number);
+            }
+            else{
+                const latnLong = [
+                    [point.latitude, point.longitude],
+                    [point.latitude2, point.longitude2]
+                ]
+
+                let polyline = L.polyline(latnLong, {
+                    color: '#a92727',
+                    weight: 5,
+                    opacity: 0.5
+                })
+                polyline.addTo(map);
+
+                ids[point.order_number] = polyline;
+            }
         }
     })
+
+    for(const orderNumber of orderNumberSet){
+        let polyline = ids[orderNumber];
+        polyline.remove();
+        map.removeLayer(polyline);
+        ids.delete(orderNumber);
+    }
 }
 
 async function fetchandLoadData(){
     //Testing polyline
     const latnLong = [
-        [40.625388055243, -74.002149493009],
-        [40.624058844484, -73.99994794354]
+        [40.684186554855,  -73.992192911393],
+        [40.683551945806, -73.992624221058]
     ]
    
     L.polyline(latnLong, {
-        color: 'red',
-        weight: 5,
-        opacity: 0.5
+        color: 'blue',
+        weight: 100,
+        opacity: 1
     }).addTo(map);
     console.log('Fetch data');
 
     const centerlineResponse = await fetch('./centerline.csv');
     const centerlineData = await centerlineResponse.text();
-    console.log(centerlineData);
 
     //Import data into tables in database
     if(importCenterlineData == true){
@@ -147,11 +174,17 @@ async function fetchandLoadData(){
         });
     }
 
-    if(editStreetCleaningData){
+    if(editStreetCleaningData == true){
         const response = await fetch("http://localhost:3000/editStreetCleaning",{
             method: "POST",
         });
     }
+  
+    map.on("moveend", function(){
+        const bounds = map.getBounds();
+        loadStreetCleaningData(bounds);
+    })
+    
 }
 
 function findDay(unavailableDay){

@@ -36,8 +36,9 @@ app.use(express.text({type: "text/csv", limit: '500mb'}));
 app.get('/getStreetCleaningData', async (req, res) =>{
     try{
         const {minLatitude, maxLatitude, minLongitude, maxLongitude} = req.query;
+        console.log(minLatitude, maxLatitude, minLongitude, maxLongitude);
         const result = await pool.query(`
-            SELECT latitude, longitude, latitude2, longitude2
+            SELECT latitude, longitude, latitude2, longitude2, order_number
             FROM street_cleaning
             WHERE (latitude BETWEEN ${minLatitude} AND ${maxLatitude} AND longitude BETWEEN ${minLongitude} AND ${maxLongitude})
                 OR (latitude2 BETWEEN ${minLatitude} AND ${maxLatitude} AND longitude2 BETWEEN ${minLongitude} AND ${maxLongitude})
@@ -56,6 +57,8 @@ app.post('/editStreetCleaning', async (req, res) => {
     const {rows} = await pool.query(
         `SELECT sign_longitude, sign_latitude, order_number FROM street_cleaning`
     );
+
+    console.log("Editing");
 
     for(let i = 0; i < rows.length; i++){
         const order_number = rows[i].order_number;

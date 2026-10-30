@@ -38,7 +38,7 @@ app.get('/getStreetCleaningData', async (req, res) =>{
         const {minLatitude, maxLatitude, minLongitude, maxLongitude} = req.query;
         console.log(minLatitude, maxLatitude, minLongitude, maxLongitude);
         const result = await pool.query(`
-            SELECT latitude, longitude, latitude2, longitude2, order_number
+            SELECT latitude, longitude, latitude2, longitude2, order_number, unavailable_days, time
             FROM street_cleaning
             WHERE (latitude BETWEEN ${minLatitude} AND ${maxLatitude} AND longitude BETWEEN ${minLongitude} AND ${maxLongitude})
                 OR (latitude2 BETWEEN ${minLatitude} AND ${maxLatitude} AND longitude2 BETWEEN ${minLongitude} AND ${maxLongitude})

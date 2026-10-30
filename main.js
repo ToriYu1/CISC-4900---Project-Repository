@@ -56,14 +56,6 @@ function getLocation(){
     }
 }
 
-function ConvertCoordinatesToLangLat(x,y){
-    let x1 = parseFloat(x);
-    let y1 = parseFloat(y);
-
-    const [long, lat] = proj4(epsg2263, "EPSG:4326", [x1,y1]);
-    return {lattitude: lat, longitude: long};
-}
-
 function getDate(){
     return new Date();
 }
@@ -81,6 +73,61 @@ function getTime(){
     let minute = date.getUTCMinutes();
 
     return [hour,minute];
+}
+
+//Check if the current day matches the day a street will be unavailable for parking
+function isMatchingDay(unavailable_days){
+    const day = days[getDay() - 1];
+
+    for(let i = 0; i < unavailable_days.length; i++){
+        if (day === unavailable_days[i]){
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function newConvertTime(time){
+    if(time == "NOON"){
+        return [12,0];
+    }
+    else if(time == "MIDNIGHT"){
+        return [0,0];
+    }
+    else{
+        let result = time.match(/(\d{1,2})(?::(\d{2}))?(AM|PM)/);
+        let hour = result[1];
+        let minute = result[2];
+        let meridiem = result[3];
+
+        if(meridiem == "AM"){
+            return [hour, minute];
+        }
+        else if(meridiem == "PM"){
+            if(hour == 12){
+                return [hour, minute];
+            }
+            else{
+                return [hour + 12, minute];
+            }
+        }
+    }
+}
+
+//Check if the current time is between the time of when the street is unavailable
+function isMatchingTime(time){
+    let currentTime = getTime();
+    const startTime = newConvertTime(time[1]);
+    const endTime = newConvertTime(time[2]);
+
+    if((currentTime[0] >= startTime[0]) && (currentTime[1] >= startTime[1])){
+        if((currentTime[0] <= endTime[0]) && (currentTime[1] <= endTime[1])){
+            return true;
+        }
+    }
+
+    return false;
 }
 
 async function loadStreetCleaningData(bounds) {
@@ -101,26 +148,46 @@ async function loadStreetCleaningData(bounds) {
             console.log("Matched to BUTLER ST!")
         }
         else{
-            console.log(point.latitude + ", " + point.longitude + " -- " + point.latitude2 + ", " + point.longitude2);
+            //(point.latitude + ", " + point.longitude + " -- " + point.latitude2 + ", " + point.longitude2);
         }
         if(point.latitude && point.latitude2 != null){
             if(ids.has(point.order_number)){
                 orderNumberSet.delete(point.order_number);
             }
             else{
-                const latnLong = [
-                    [point.latitude, point.longitude],
-                    [point.latitude2, point.longitude2]
-                ]
+                let description;
+                let createPolyline = false;
+                if(point.unavailable_days[0] == "NO PARKING ANYTIME"){
+                    console.log("NO PARKING ANYTIME");
+                    createPolyline = true;
+                    description = "NO PARKING ANYTIME";
+                }
 
-                let polyline = L.polyline(latnLong, {
-                    color: '#a92727',
-                    weight: 5,
-                    opacity: 0.5
-                })
-                polyline.addTo(map);
+                //Check if the street is available for parking 
+                if(isMatchingDay(point.unavailable_days)){
+                    //Check time
+                    if(isMatchingTime(point.time, point.order_number)){
+                        console.log("Testing");
+                        createPolyline = true;
+                    }
+                }
 
-                ids[point.order_number] = polyline;
+                if(createPolyline){
+                    console.log("Create polyline");
+                    const latnLong = [
+                        [point.latitude, point.longitude],
+                        [point.latitude2, point.longitude2]
+                    ]
+
+                    let polyline = L.polyline(latnLong, {
+                        color: '#a92727',
+                        weight: 5,
+                        opacity: 0.5
+                    })
+                    polyline.addTo(map);
+
+                    ids[point.order_number] = polyline;
+                }
             }
         }
     })
@@ -199,6 +266,7 @@ function findDay(unavailableDay){
             
             for(let i = 0; i <= numDays; i++){
                 if(currentDay == days[startingDay + i]){
+                    console.log("Found day");
                     return true;
                 }
             }
@@ -216,115 +284,6 @@ function findDay(unavailableDay){
     return false;
 }
 
-function isMatchingDay(str){
-    let regex = /\b(?:MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|MON|TUE|WED|THU|FRI|SAT|SUN)(?:\s*(?:-|THRU)\s*(?:MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|MON|TUE|WED|THU|FRI|SAT|SUN))?\b|NO\s+PARKING\s+ANYTIME/gi;
-    let unavailableDay = str.match(regex);
-
-    if(unavailableDay == "NO PARKING ANYTIME"){
-        return "NO PARKING ANYTIME";
-    }
-
-    let found = findDay(unavailableDay);
-    if(found == true){
-        return true;
-    }
-    else{
-        return false;
-    }
-}
-
-function convertTime(time){
-    if(time == "NOON") return [12,0];
-    else if(time == "MIDNIGHT") return [0,0];
-
-    let result = time.match(/(\d{1,2})(?::(\d{2}))?(AM|PM)/);
-
-    let hour = Number(result[1]);
-    let minute = Number(result[2]) || 0;
-    let meridiem = result[3];
-
-    if(meridiem == "AM"){
-        return [hour, minute];
-    }
-    else if(meridiem == "PM"){
-        if(hour == 12){
-            return [hour, minute];
-        }
-        else{
-            return [hour + 12, minute];
-        }
-    }
-}
-
-function isMatchingTime(startTime, endTime){
-    let currentTime = getTime();
-    let hour = currentTime[0];
-    let minute = currentTime[1];
-
-    let startTimeInfo = convertTime(startTime);
-    let endTimeInfo = convertTime(endTime);
-
-    let startHour = startTimeInfo[0];
-    let startMinute = startTimeInfo[1];
-    let endHour = endTimeInfo[0];
-    let endMinute = endTimeInfo[1];
-
-    if(hour >= startHour && hour <= endHour){
-        //Parking is not available
-        return true;
-    }
-    else{
-        return false;
-    }
-}
-
-function displayInfoOnMap(){
-    for(let i = 0; i < streetCleaningInfo.length; i++){
-        let str = streetCleaningInfo[i].sign_description;
-
-        let result = isMatchingDay(str);
-        if(result == true){
-            //Street is likely unavailable for parking
-
-            //Check time/date
-            const timeResult = str.match(/((?:\d{1,2}(?::\d{2})?(?:AM|PM)|NOON|MIDNIGHT))-((?:\d{1,2}(?::\d{2})?(?:AM|PM)|NOON|MIDNIGHT))/i);
-            if(isMatchingTime(timeResult[1], timeResult[2]) == true){
-                //Street is currently being cleaned, parking is unavaialble
-
-            }
-            else{
-                //Street is not being cleaned at this time, parking is possibly available
-                let testX = streetCleaningInfo[i].sign_x_coord;
-
-                if(testX != undefined){
-                    let latNLong = ConvertCoordinatesToLangLat(streetCleaningInfo[i].sign_x_coord, streetCleaningInfo[i].sign_y_coord);   
-                    let marker = L.marker([latNLong.lattitude, latNLong.longitude]).addTo(map);
-                    marker.bindPopup("Parking is possibly available");
-                }  
-            }
-        }
-        else if(result == "NO PARKING ANYTIME"){
-            let testX = streetCleaningInfo[i].sign_x_coord;
-
-            if(testX != undefined){
-                let latNLong = ConvertCoordinatesToLangLat(streetCleaningInfo[i].sign_x_coord, streetCleaningInfo[i].sign_y_coord);   
-                let marker = L.marker([latNLong.lattitude, latNLong.longitude]).addTo(map);
-                marker.bindPopup("Parking is unavailable");
-            }
-        }
-        else{
-            //Street is likely available for parking
-            let testX = streetCleaningInfo[i].sign_x_coord;
-
-            if(testX != undefined){
-                let latNLong = ConvertCoordinatesToLangLat(streetCleaningInfo[i].sign_x_coord, streetCleaningInfo[i].sign_y_coord);   
-                let marker = L.marker([latNLong.lattitude, latNLong.longitude]).addTo(map);
-                marker.bindPopup("Parking is possibly available");
-            }
-        }
-    }
-}
-
 //UI
 const checkboxes = document.querySelectorAll(".day");
 checkboxes.forEach(checkbox =>{
@@ -338,7 +297,6 @@ checkboxes.forEach(checkbox =>{
 
 async function main(){
     await fetchandLoadData();
-    displayInfoOnMap();
 }
 
 getLocation();

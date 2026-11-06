@@ -10,6 +10,8 @@ const dayValue = {
     "SATURDAY": 5,
     "SUNDAY": 6
 }
+const streetParkingCookieName = "parkingCookie";
+const uid = getUserCookie();
 
 //Dictionary
 const ids = new Map();
@@ -30,6 +32,19 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 //Functions
+function getUserCookie(){
+    const match = document.cookie.split(';').find((row) => row.startsWith(streetParkingCookieName + '='));
+
+    if(match){
+        return decodeURIComponent(match.slice(streetParkingCookieName.length + 1));
+    }
+
+    const id = crypto.randomUUID();
+    let cookie = `${streetParkingCookieName}=${encodeURIComponent(id)}; path=/`;
+    document.cookie = cookie;
+    return id;
+}
+
 function getLocation(){
     if("geolocation" in navigator){
         navigator.geolocation.getCurrentPosition(
@@ -37,6 +52,16 @@ function getLocation(){
                 const latitude = position.coords.latitude;
                 const longitude = position.coords.longitude;
                 map.setView([latitude, longitude], 16);
+
+                //Create a marker to show user location
+                const locationIcon = L.divIcon({
+                    className: '',
+                    html :'<div class="locationIcon"><div class="pulse"></div><div class="dot"></div></div>',
+                    iconSize: [16,16],
+                    iconAnchor: [8,8]
+                })
+                
+                L.marker([latitude, longitude], {icon: locationIcon}).addTo(map);
             },
 
             (error) => {
@@ -167,8 +192,13 @@ async function loadStreetCleaningData(bounds) {
                 if(isMatchingDay(point.unavailable_days)){
                     //Check time
                     if(isMatchingTime(point.time, point.order_number)){
-                        console.log("Testing");
+                        console.log("MATCHING TIME");
                         createPolyline = true;
+                        description = "No parking from " + point.unavailable_days;
+                        console.log(description);
+                    }
+                    else{
+                        console.log(point.time);
                     }
                 }
 
@@ -185,6 +215,7 @@ async function loadStreetCleaningData(bounds) {
                         opacity: 0.5
                     })
                     polyline.addTo(map);
+                    polyline.bindTooltip(description);
 
                     ids[point.order_number] = polyline;
                 }

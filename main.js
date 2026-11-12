@@ -25,6 +25,7 @@ let zoomLimit;
 //Variables
 var map = L.map('map', {minZoom: 16, maxZoom: 18, zoom: 18}).setView([40.7128, -74.0060], 13);
 const epsg2263 = "+proj=lcc +lat_1=41.03333333333333 +lat_2=40.66666666666666 +lat_0=40.16666666666666 +lon_0=-74 +x_0=300000.0000000001 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=us-ft +no_defs'";
+let locationMarker;
 
 //Leaflet Map
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -32,6 +33,10 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 //Functions
+function sleep(ms){
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function getUserCookie(){
     const match = document.cookie.split(';').find((row) => row.startsWith(streetParkingCookieName + '='));
 
@@ -47,37 +52,48 @@ function getUserCookie(){
 
 function getLocation(){
     if("geolocation" in navigator){
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const latitude = position.coords.latitude;
-                const longitude = position.coords.longitude;
-                map.setView([latitude, longitude], 16);
+        return new Promise((resolve, reject) =>{
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const latitude = position.coords.latitude;
+                    const longitude = position.coords.longitude;
+                    map.setView([latitude, longitude], 16);
 
-                //Create a marker to show user location
-                const locationIcon = L.divIcon({
-                    className: '',
-                    html :'<div class="locationIcon"><div class="pulse"></div><div class="dot"></div></div>',
-                    iconSize: [16,16],
-                    iconAnchor: [8,8]
-                })
-                
-                L.marker([latitude, longitude], {icon: locationIcon}).addTo(map);
-            },
+                    console.log("getCurrentPosition");
+                    //Create a marker to show user location
+                    const locationIcon = L.divIcon({
+                        className: '',
+                        html :'<div class="locationIcon"><div class="pulse"></div><div class="dot"></div></div>',
+                        iconSize: [16,16],
+                        iconAnchor: [8,8]
+                    })
 
-            (error) => {
-                switch(error.code){
-                    case error.PERMISSION_DENIED: //User did not give permission to use geolocation, use IP instead
-                        fetch("https://ipapi.co/json/")
-                            .then((response) => response.json())
-                            .then((data) => {
-                                const latitude = data.latitude;
-                                const longitude = data.longitude;
-                                map.setView([latitude, longitude], 16);
-                            });
-                        break;
+                    if(locationMarker == null){
+                        locationMarker = L.marker([latitude, longitude], {icon: locationIcon}).addTo(map);
+                    }
+                    else{
+                        locationMarker.setLatLng([latitude, longitude]);
+                    }
+                    resolve([latitude, longitude]);
+                },
+
+                (error) => {
+                    switch(error.code){
+                        case error.PERMISSION_DENIED: //User did not give permission to use geolocation, use IP instead
+                            fetch("https://ipapi.co/json/")
+                                .then((response) => response.json())
+                                .then((data) => {
+                                    const latitude = data.latitude;
+                                    const longitude = data.longitude;
+                                    map.setView([latitude, longitude], 16);
+
+                                    console.log("Error");
+                                });
+                            break;
+                    }
                 }
-            }
-        );
+            );
+        })
     }
 }
 
@@ -183,7 +199,7 @@ async function loadStreetCleaningData(bounds) {
                 let description;
                 let createPolyline = false;
                 if(point.unavailable_days[0] == "NO PARKING ANYTIME"){
-                    console.log("NO PARKING ANYTIME");
+                    //console.log("NO PARKING ANYTIME");
                     createPolyline = true;
                     description = "NO PARKING ANYTIME";
                 }
@@ -198,12 +214,12 @@ async function loadStreetCleaningData(bounds) {
                         console.log(description);
                     }
                     else{
-                        console.log(point.time);
+                        //console.log(point.time);
                     }
                 }
 
                 if(createPolyline){
-                    console.log("Create polyline");
+                    //console.log("Create polyline");
                     const latnLong = [
                         [point.latitude, point.longitude],
                         [point.latitude2, point.longitude2]
@@ -316,6 +332,74 @@ function findDay(unavailableDay){
 }
 
 //UI
+const parkingButton = document.getElementById("ParkingButton");
+let isParking = false;
+
+let stopwatch;
+let startTime = 0;
+let timePassed = 0;
+
+function updateStopwatch(){
+    if(isParking == true){
+        let currentTime = Date.now();
+        timePassed = currentTime - startTime;
+
+        let hours = Math.floor(timePassed / (1000 * 60 * 60));
+        let minutes = Math.floor(timePassed / (1000 * 60) % 60);
+        let seconds = Math.floor(timePassed / 1000 % 60);
+        hours = String(hours).padStart(2,"0");
+        minutes = String(minutes).padStart(2,"0");
+        seconds = String(seconds).padStart(2,"0");
+
+        parkingButton.textContent = `${hours}:${minutes}:${seconds}\nStop Parking`;
+    }
+}
+
+let locations = new Map();
+parkingButton.addEventListener("click", async function(){
+    if(isParking == false){
+        isParking = true;
+        parkingButton.style.backgroundColor = "red";
+        parkingButton.textContent = "00:00:00\nStop Parking";
+
+        const timeStarted = getTime(); //Time the user started parking
+        startTime = Date.now() - timePassed;
+        stopwatch = setInterval(updateStopwatch, 10);
+
+        while(isParking == true){
+            //Every 5 seconds get the user's current location
+            await sleep(5000); 
+            
+            console.log("5 seconds");
+            const [latitude, longitude] = await getLocation();
+            console.log(latitude, longitude);
+
+            let key = `${latitude},${longitude}`;
+
+            if(!locations.has(key)){
+                locations.set(key, getTime());
+            };
+        }
+    }
+    else{
+        isParking = false;
+        parkingButton.style.backgroundColor = "rgb(15, 222, 98)";
+        parkingButton.textContent = "Start Parking";
+
+        //Store locations into a database
+        console.log("Test");
+        console.log(locations.length);
+        for(let i = 0; i < locations.length; i++){
+            console.log(location[i]);
+        }
+
+        clearInterval(updateStopwatch);
+        stopwatch = null;
+        startTime = 0;
+        timePassed = 0;
+    }
+})
+
 const checkboxes = document.querySelectorAll(".day");
 checkboxes.forEach(checkbox =>{
     checkbox.addEventListener("change", function(){

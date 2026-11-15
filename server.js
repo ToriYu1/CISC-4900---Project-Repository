@@ -18,10 +18,13 @@ function ConvertCoordinatesToLatLong(x,y){
 
 //Match the sign longitude/latitude to the closest latitude/longitude in centerline_data and then store the latitude/longitude street_cleaning
 async function findNearestCoordinate(longitude, latitude){
+    console.log("Finding nearest coordinate");
     const result = await pool.query(`
         SELECT *FROM centerline_data
-        ORDER BY 
-            power(("coordinates"[1][1]) - $1, 2) + power(("coordinates"[1][2]) - $2, 2)
+        ORDER BY LEAST(
+            power(("coordinates"[1][1]) - $1, 2) + power(("coordinates"[1][2]) - $2, 2),
+            power(("coordinates"[2][1]) - $1, 2) + power(("coordinates"[2][2]) - $2, 2)
+        )
         LIMIT 1;
         `, [longitude, latitude]
     );
@@ -33,10 +36,24 @@ app.use(cors());
 app.use(express.json({limit: '500mb'}));
 app.use(express.text({type: "text/csv", limit: '500mb'}));
 
+
+app.post('/getStreetWithCoordinate', async (req, res) =>{
+    try{
+        const {latitude, longitude} = req.body;
+        console.log(latitude, longitude);
+
+        let results = await findNearestCoordinate(longitude,latitude);
+        console.log(results);
+    }
+    catch(error){
+
+    }
+})
+
 app.get('/getStreetCleaningData', async (req, res) =>{
     try{
         const {minLatitude, maxLatitude, minLongitude, maxLongitude} = req.query;
-        console.log(minLatitude, maxLatitude, minLongitude, maxLongitude);
+        //console.log(minLatitude, maxLatitude, minLongitude, maxLongitude);
         const result = await pool.query(`
             SELECT latitude, longitude, latitude2, longitude2, order_number, unavailable_days, time
             FROM street_cleaning

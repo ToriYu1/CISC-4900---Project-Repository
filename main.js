@@ -444,6 +444,23 @@ async function main(){
     await fetchandLoadData();
 }
 
+async function testFunction(){
+    let latitude = 40.68208582694634;
+    let longitude = -73.98675108035756;
+
+    const response = await fetch("http://localhost:3000/getStreetWithCoordinate",{
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            latitude: latitude,
+            longitude: longitude
+        })
+    });
+}
+
+testFunction();
 getLocation();
 main();
 

@@ -35,6 +35,41 @@
     color: black;
     font-size: 40px;
     width: 400px;
-    height: 150px;
+    height: 100px;
     margin: 0 auto;
 }
+
+#CancelParkingButton {
+    display: block;
+    white-space: pre-line;
+    background-color: red;
+    font-size: 30px;
+    width: 250px;
+    height: 70px;
+    margin: 10px auto 0;
+    opacity: 0;
+    bottom: 10px;
+}
+
+#CancelParkingFrame{
+    display: flex;
+    width: 200px;
+    height: 70px;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: grey;
+    flex-direction: column;
+    transform: scale(1.5);
+    border: 2px solid black;
+    z-index: 500;
+    opacity: 0;
+    transform: scale(2);
+}
+

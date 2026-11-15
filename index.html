@@ -8,15 +8,6 @@
         <link rel="stylesheet" href="style.css">
     </head>
     <body>
-        <div class="checkboxes">
-            <label><input type="checkbox" class = "day"> Monday</label>
-            <label><input type="checkbox" class = "day"> Tuesday</label>
-            <label><input type="checkbox" class = "day"> Wednesday</label>
-            <label><input type="checkbox" class = "day"> Thursday</label>
-            <label><input type="checkbox" class = "day"> Friday</label>
-            <label><input type="checkbox" class = "day"> Saturday</label>
-            <label><input type="checkbox" class = "day"> Sunday</label>
-        </div>
         </div>
         <div id="map" style="width:2000px; height:950px"><</div>>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
@@ -24,6 +15,18 @@
             crossorigin=""></script>
         <script src="node_modules/proj4/dist/proj4.js"></script>
         <button id="ParkingButton">Start Parking</button>
+        <button id="CancelParkingButton">Cancel Parking</button>
+       
+        <div id="CancelParkingFrame">
+            <div id="Text">
+                <p>Are You Sure?</p>
+            </div>
+
+            <div id="Buttons">
+                <button id="ConfirmCancelButton">Yes</button>
+                <button id="DeclineCancelButton">No</button>
+            </div>
+        </div>
         <script src="main.js"></script>
     </body>
 </html>

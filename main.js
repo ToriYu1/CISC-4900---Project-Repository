@@ -378,14 +378,28 @@ parkingButton.addEventListener("click", async function(){
         while(isParking == true){
             //Every 5 seconds get the user's current location
             await sleep(5000); 
-            
-            console.log("5 seconds");
+        
             const [latitude, longitude] = await getLocation();
             console.log(latitude, longitude);
 
-            let key = `${latitude},${longitude}`;
+            console.log("Match to cloest street");
+            const response = await fetch("http://localhost:3000/getStreetWithCoordinate",{
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    latitude: latitude,
+                    longitude: longitude
+                })
+            });
 
+            const data = await response.json();
+
+            let key = `${data.coordinates[0]},${data.coordinates[1]}`;
+            
             if(!locations.has(key)){
+                console.log("Not in data already");
                 locations.set(key, getTime());
             };
         }
@@ -460,7 +474,7 @@ async function testFunction(){
     });
 }
 
-testFunction();
+//testFunction();
 getLocation();
 main();
 

@@ -19,17 +19,20 @@ function ConvertCoordinatesToLatLong(x,y){
 //Match the sign longitude/latitude to the closest latitude/longitude in centerline_data and then store the latitude/longitude street_cleaning
 async function findNearestCoordinate(longitude, latitude){
     console.log("Finding nearest coordinate");
+
     const result = await pool.query(`
-        SELECT *FROM centerline_data
-        ORDER BY LEAST(
-            power(("coordinates"[1][1]) - $1, 2) + power(("coordinates"[1][2]) - $2, 2),
-            power(("coordinates"[2][1]) - $1, 2) + power(("coordinates"[2][2]) - $2, 2)
-        )
+        SELECT *,
+        ST_Distance(
+            geom::geography,
+            ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
+        ) AS distance
+        FROM centerline_data
+        ORDER BY distance
         LIMIT 1;
         `, [longitude, latitude]
     );
 
-    return [result.rows[0].coordinates[0], result.rows[0].coordinates[1]]
+    return result.rows[0];
 }
 
 app.use(cors());
@@ -40,10 +43,9 @@ app.use(express.text({type: "text/csv", limit: '500mb'}));
 app.post('/getStreetWithCoordinate', async (req, res) =>{
     try{
         const {latitude, longitude} = req.body;
-        console.log(latitude, longitude);
 
         let results = await findNearestCoordinate(longitude,latitude);
-        console.log(results);
+        res.json(results);
     }
     catch(error){
 
@@ -82,11 +84,11 @@ app.post('/editStreetCleaning', async (req, res) => {
         const sign_longitude = rows[i].sign_longitude;
         const sign_latitude = rows[i].sign_latitude;
 
-        const coordinates = await findNearestCoordinate(sign_longitude, sign_latitude);
-        const longitude = coordinates[0][0];
-        const latitude = coordinates[0][1];
-        const longitude2 = coordinates[1][0];
-        const latitude2 = coordinates[1][1];
+        const data = await findNearestCoordinate(sign_longitude, sign_latitude);
+        const longitude = data.coordinates[0][0];
+        const latitude = data.coordinates[0][1];
+        const longitude2 = data.coordinates[1][0];
+        const latitude2 = data.coordinates[1][1];
 
         await pool.query(
             `UPDATE street_cleaning

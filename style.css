@@ -51,7 +51,7 @@
     bottom: 10px;
 }
 
-#CancelParkingFrame{
+#ParkingFrame{
     display: flex;
     width: 200px;
     height: 70px;

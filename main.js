@@ -334,17 +334,16 @@ function findDay(unavailableDay){
 //UI
 const parkingButton = document.getElementById("ParkingButton");
 const cancelParkingButton = document.getElementById("CancelParkingButton");
-const cancelParkingFrame = document.getElementById("CancelParkingFrame");
-const confirmCancelButton = document.getElementById("ConfirmCancelButton");
-const declineCancelButton = document.getElementById("DeclineCancelButton");
+const parkingFrame = document.getElementById("ParkingFrame");
+const confirmButton = document.getElementById("ConfirmButton");
+const declineButton = document.getElementById("DeclineButton");
 
 let isParking = false;
 
 let stopwatch;
 let startTime = 0;
 let timePassed = 0;
-
-let confirmCancel = false;
+let promptEnabled = false;
 
 function updateStopwatch(){
     if(isParking == true){
@@ -360,6 +359,25 @@ function updateStopwatch(){
 
         parkingButton.textContent = `${hours}:${minutes}:${seconds}\nFound Parking`;
     }
+}
+
+function promptConfirmation(){
+    promptEnabled = true;
+    parkingFrame.style.opacity = 100;
+
+    return new Promise((resolve) => {
+        confirmButton.addEventListener("click", async function(){
+            promptEnabled = false;
+            parkingFrame.style.opacity = 0;
+            resolve(true);
+        });
+
+        declineButton.addEventListener("click", async function(){
+            promptEnabled = false;
+            parkingFrame.style.opacity = 0;
+            resolve(false);
+        });
+    });
 }
 
 let locations = new Map();
@@ -405,35 +423,55 @@ parkingButton.addEventListener("click", async function(){
         }
     }
     else{
-        //Found Parking
-        cancelParkingFrame.style.opacity = 0;
-        cancelParkingButton.style.opacity = 0;
-        isParking = false;
-        parkingButton.style.backgroundColor = "rgb(15, 222, 98)";
-        parkingButton.textContent = "Start Parking";
+        if(promptEnabled == false){
+            let result = await promptConfirmation();
+            console.log("Confirm Parking");
 
-        //Store locations into a database
-        console.log("Test");
-        console.log(locations.length);
-        for(let i = 0; i < locations.length; i++){
-            console.log(location[i]);
+            if(result == true){
+                cancelParkingButton.style.opacity = 0;
+
+                isParking = false;
+                parkingButton.style.backgroundColor = "rgb(15, 222, 98)";
+                parkingButton.textContent = "Start Parking";
+
+                //Store locations into a database
+                console.log("Test");
+                console.log(locations.length);
+                for(let i = 0; i < locations.length; i++){
+                    console.log(location[i]);
+                }
+
+                clearInterval(updateStopwatch);
+                stopwatch = null;
+                startTime = 0;
+                timePassed = 0;
+            }          
         }
-
-        clearInterval(updateStopwatch);
-        stopwatch = null;
-        startTime = 0;
-        timePassed = 0;
     }
 })
 
 cancelParkingButton.addEventListener("click", async function(){
-    if(isParking == true){
-        cancelParkingFrame.style.opacity = 100;
+    if(isParking == true && promptEnabled == false){
+        let result = await promptConfirmation();
+
+        if(result == true){
+            cancelParkingButton.style.opacity = 0;
+
+            isParking = false;
+            parkingButton.style.backgroundColor = "rgb(15, 222, 98)";
+            parkingButton.textContent = "Start Parking";
+
+            clearInterval(updateStopwatch);
+            stopwatch = null;
+            startTime = 0;
+            timePassed = 0;
+        }
     }
 })
 
-confirmCancelButton.addEventListener("click", async function(){
-    if(isParking == true && cancelParkingFrame.style.opacity == 100){
+/*
+confirmButton.addEventListener("click", async function(){
+    if(isParking == true && parkingFrame.style.opacity == 100){
         cancelParkingButton.style.opacity = 0;
         isParking = false;
         parkingButton.style.backgroundColor = "rgb(15, 222, 98)";
@@ -444,15 +482,18 @@ confirmCancelButton.addEventListener("click", async function(){
         startTime = 0;
         timePassed = 0;
 
-        cancelParkingFrame.style.opacity = 0;
+        parkingFrame.style.opacity = 0;
     }
 })
+*/
 
-declineCancelButton.addEventListener("click", async function(){
+/*
+declineButton.addEventListener("click", async function(){
     if(isParking == true && cancelParkingFrame.style.opacity == 100){
-        cancelParkingFrame.style.opacity = 0;
+        parkingFrame.style.opacity = 0;
     }
 })
+*/
 
 async function main(){
     await fetchandLoadData();

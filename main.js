@@ -393,10 +393,7 @@ parkingButton.addEventListener("click", async function(){
         startTime = Date.now() - timePassed;
         stopwatch = setInterval(updateStopwatch, 10);
 
-        while(isParking == true){
-            //Every 5 seconds get the user's current location
-            await sleep(5000); 
-        
+        while(isParking == true){      
             const [latitude, longitude] = await getLocation();
             console.log(latitude, longitude);
 
@@ -414,12 +411,18 @@ parkingButton.addEventListener("click", async function(){
 
             const data = await response.json();
 
+            const testNumber = data.coordinates[0];
+            console.log(typeof(testNumber));
+
             let key = `${data.coordinates[0]},${data.coordinates[1]}`;
             
             if(!locations.has(key)){
                 console.log("Not in data already");
                 locations.set(key, getTime());
             };
+
+            //Every 5 seconds get the user's current location
+            await sleep(5000); 
         }
     }
     else{
@@ -434,12 +437,17 @@ parkingButton.addEventListener("click", async function(){
                 parkingButton.style.backgroundColor = "rgb(15, 222, 98)";
                 parkingButton.textContent = "Start Parking";
 
-                //Store locations into a database
-                console.log("Test");
-                console.log(locations.length);
-                for(let i = 0; i < locations.length; i++){
-                    console.log(location[i]);
-                }
+                const response = fetch("http://localhost:3000/importUserData",{
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        uid: uid,
+                        locations: Object.fromEntries(locations),
+                        day: getDay()
+                    })
+                });
 
                 clearInterval(updateStopwatch);
                 stopwatch = null;

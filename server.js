@@ -105,6 +105,38 @@ app.post('/editStreetCleaning', async (req, res) => {
     }
 })
 
+app.post('/importUserData', async (req, res) => {
+    const uid = req.body.uid; 
+    const locations = new Map(Object.entries(req.body.locations));
+    const day = req.body.day;
+
+    console.log(uid);
+    console.log(typeof(uid));
+    let count = 1;
+    for(const [key,value] of locations){
+        const location = key.split(",").map(Number);
+
+        //Final key (Location user parked in)
+        if(count == locations.size){
+            const query = await pool.query(
+                `INSERT INTO user_street_parked (uid, location, time, day)
+                VALUES ($1, $2, $3, $4)
+                `, [uid, location, value, day]     
+            );
+
+        }
+        else{
+            const query = await pool.query(
+                `INSERT INTO user_streets_passed (uid, location, time, day)
+                VALUES ($1, $2, $3, $4)
+                `, [uid, location, value, day]     
+            );
+
+            count++;
+        }
+    }
+});
+
 app.post('/importCenterlineData', async (req, res) => {
     const info = req.body.split("\n");
     try{

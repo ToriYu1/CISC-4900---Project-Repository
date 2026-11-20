@@ -26,6 +26,7 @@ let zoomLimit;
 var map = L.map('map', {minZoom: 16, maxZoom: 18, zoom: 18}).setView([40.7128, -74.0060], 13);
 const epsg2263 = "+proj=lcc +lat_1=41.03333333333333 +lat_2=40.66666666666666 +lat_0=40.16666666666666 +lon_0=-74 +x_0=300000.0000000001 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=us-ft +no_defs'";
 let locationMarker;
+let parkedCar = false;
 
 //Leaflet Map
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -301,6 +302,7 @@ async function fetchandLoadData(){
     
 }
 
+/*
 function findDay(unavailableDay){
     let currentDay = days[getDay()-1];
 
@@ -329,7 +331,7 @@ function findDay(unavailableDay){
     }
 
     return false;
-}
+}*/
 
 //UI
 const parkingButton = document.getElementById("ParkingButton");
@@ -382,79 +384,102 @@ function promptConfirmation(){
 
 let locations = new Map();
 parkingButton.addEventListener("click", async function(){
-    if(isParking == false){
-        cancelParkingButton.style.opacity = 100;
-
-        isParking = true;
-        parkingButton.style.backgroundColor = "red";
-        parkingButton.textContent = "00:00:00\nStop Parking";
-
-        const timeStarted = getTime(); //Time the user started parking
-        startTime = Date.now() - timePassed;
-        stopwatch = setInterval(updateStopwatch, 10);
-
-        while(isParking == true){      
-            const [latitude, longitude] = await getLocation();
-            console.log(latitude, longitude);
-
-            console.log("Match to cloest street");
-            const response = await fetch("http://localhost:3000/getStreetWithCoordinate",{
+    if(parkedCar == true){
+        let result = await promptConfirmation();
+        console.log(result);
+        if(result == true){
+            //Remove parking data from database
+            console.log("Remove user data from database");
+            fetch("http://localhost:3000/removeParkingInfo",{
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({
-                    latitude: latitude,
-                    longitude: longitude
-                })
+                body: JSON.stringify({uid:uid})
             });
 
-            const data = await response.json();
-
-            const testNumber = data.coordinates[0];
-            console.log(typeof(testNumber));
-
-            let key = `${data.coordinates[0]},${data.coordinates[1]}`;
-            
-            if(!locations.has(key)){
-                console.log("Not in data already");
-                locations.set(key, getTime());
-            };
-
-            //Every 5 seconds get the user's current location
-            await sleep(5000); 
+            console.log("Finished???");
+            parkedCar = false;
+            parkingButton.style.backgroundColor = "rgb(15, 222, 98)";
+            parkingButton.textContent = "Start Parking";
         }
     }
     else{
-        if(promptEnabled == false){
-            let result = await promptConfirmation();
-            console.log("Confirm Parking");
+        if(isParking == false){
+            cancelParkingButton.style.opacity = 100;
 
-            if(result == true){
-                cancelParkingButton.style.opacity = 0;
+            isParking = true;
+            parkingButton.style.backgroundColor = "red";
+            parkingButton.textContent = "00:00:00\nStop Parking";
 
-                isParking = false;
-                parkingButton.style.backgroundColor = "rgb(15, 222, 98)";
-                parkingButton.textContent = "Start Parking";
+            const timeStarted = getTime(); //Time the user started parking
+            startTime = Date.now() - timePassed;
+            stopwatch = setInterval(updateStopwatch, 10);
 
-                const response = fetch("http://localhost:3000/importUserData",{
+            while(isParking == true){      
+                const [latitude, longitude] = await getLocation();
+                console.log(latitude, longitude);
+
+                console.log("Match to cloest street");
+                const response = await fetch("http://localhost:3000/getStreetWithCoordinate",{
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
-                        uid: uid,
-                        locations: Object.fromEntries(locations),
-                        day: getDay()
+                        latitude: latitude,
+                        longitude: longitude
                     })
                 });
 
-                clearInterval(updateStopwatch);
-                stopwatch = null;
-                startTime = 0;
-                timePassed = 0;
-            }          
+                const data = await response.json();
+
+                const testNumber = data.coordinates[0];
+                console.log(typeof(testNumber));
+
+                let key = `${data.coordinates[0]},${data.coordinates[1]}`;
+                
+                if(!locations.has(key)){
+                    console.log("Not in data already");
+                    locations.set(key, getTime());
+                };
+
+                //Every 5 seconds get the user's current location
+                await sleep(5000); 
+            }
         }
+        else{
+            if(promptEnabled == false){
+                let result = await promptConfirmation();
+                console.log("Confirm Parking");
+
+                if(result == true){
+                    cancelParkingButton.style.opacity = 0;
+
+                    isParking = false;
+                    parkedCar = true;
+                    parkingButton.style.backgroundColor = "rgb(255, 163, 71)";
+                    parkingButton.textContent = "Unpark Car";
+
+                    const response = fetch("http://localhost:3000/importUserData",{
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            uid: uid,
+                            locations: Object.fromEntries(locations),
+                            day: getDay()
+                        })
+                    });
+
+                    clearInterval(updateStopwatch);
+                    stopwatch = null;
+                    startTime = 0;
+                    timePassed = 0;
+                }          
+            }
+        }       
     }
 })
 
@@ -504,6 +529,27 @@ declineButton.addEventListener("click", async function(){
 */
 
 async function main(){
+    //Check if the user parked their car already
+
+    const response = await fetch("http://localhost:3000/getParkingInfo",{
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({uid:uid})
+    });
+
+    const data = await response.json();
+    
+    if(data[0] != null){
+        parkedCar = true;
+        parkingButton.style.backgroundColor = "rgb(255, 163, 71)";
+        parkingButton.textContent = "Unpark Car";
+    }
+    else{
+        console.log("Null");
+    }
+
     await fetchandLoadData();
 }
 

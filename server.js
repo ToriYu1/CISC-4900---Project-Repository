@@ -71,6 +71,42 @@ app.get('/getStreetCleaningData', async (req, res) =>{
     }
 })
 
+app.post('/getParkingInfo', async (req, res) => {
+    try{
+        const uid = req.body.uid;
+
+        console.log(uid);
+        
+        const result = await pool.query(`
+            SELECT uid
+            FROM user_street_parked
+            WHERE uid = $1
+            `,[uid]
+        );
+
+        res.json(result.rows);
+    }
+    catch(error){
+
+    }
+})
+
+app.post('/removeParkingInfo', async (req, res) => {
+    try{
+        const uid = req.body.uid;
+        
+        await pool.query(`
+            DELETE
+            FROM user_street_parked
+            WHERE uid = $1
+            `,[uid]
+        );
+    }
+    catch(error){
+
+    }
+})
+
 app.post('/editStreetCleaning', async (req, res) => {
     try{
     const {rows} = await pool.query(
